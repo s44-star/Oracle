@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ORACLE · Predict. Earn. Ascend.</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100;300;400&family=Cinzel:wght@400;600&display=swap');
+
+  :root {
+    --black:   #050505;
+    --gold:    #C9A84C;
+    --gold2:   #FFD97D;
+    --violet:  #9D4EDD;
+    --cyan:    #00B4D8;
+    --red:     #FF006E;
+    --text:    #E6E6F0;
+    --dim:     rgba(230,230,240,0.35);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+  html, body {
+    width:100%; height:100%; overflow:hidden;
+    background:var(--black);
+    font-family:'JetBrains Mono', monospace;
+    color:var(--text);
+    touch-action:manipulation;
+  }
+
+  /* ── SCREENS ── */
+  .screen {
+    position:fixed; inset:0;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    opacity:0; pointer-events:none;
+    transition:opacity 0.8s ease;
+  }
+  .screen.active { opacity:1; pointer-events:all; }
+
+  /* ── CANVAS (shared background) ── */
+  #bgCanvas {
+    position:fixed; inset:0;
+    width:100%; height:100%;
+    z-index:0;
+  }
+
+  /* ── INTRO ── */
+  #introScreen { z-index:10; }
+
+  #yantaCanvas {
+    width:min(340px, 88vw);
+    height:min(340px, 88vw);
+    filter:drop-shadow(0 0 32px rgba(201,168,76,0.4));
+  }
+
+  .oracle-title {
+    font-family:'Cinzel', serif;
+    font-size:clamp(28px,7vw,42px);
+    font-weight:600;
+    letter-spacing:0.35em;
+    color:var(--gold);
+    text-shadow:0 0 40px rgba(201,168,76,0.6);
+    margin-top:28px;
+    opacity:0;
+    transform:translateY(12px);
+    transition:opacity 1.2s ease 0.3s, transform 1.2s ease 0.3s;
+  }
+  .oracle-title.show { opacity:1; transform:translateY(0); }
+
+  .oracle-sub {
+    font-size:10px;
+    letter-spacing:0.45em;
+    color:var(--dim);
+    margin-top:10px;
+    text-transform:uppercase;
+    opacity:0;
+    transition:opacity 1s ease 0.8s;
+  }
+  .oracle-sub.show { opacity:1; }
+
+  .enter-btn {
+    margin-top:40px;
+    padding:14px 48px;
+    background:transparent;
+    border:1px solid var(--gold);
+    color:var(--gold);
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.35em;
+    text-transform:uppercase;
+    cursor:pointer;
+    opacity:0;
+    transition:opacity 0.8s ease 1.4s,
+               background 0.3s, color 0.3s,
+               box-shadow 0.3s;
+    position:relative;
+    overflow:hidden;
+  }
+  .enter-btn.show { opacity:1; }
+  .enter-btn:hover, .enter-btn:active {
+    background:var(--gold);
+    color:#000;
+    box-shadow:0 0 28px rgba(201,168,76,0.5);
+  }
+
+  /* ── GAME SCREEN ── */
+  #gameScreen { z-index:10; padding:0 20px; gap:0; justify-content:flex-start; }
+
+  .top-bar {
+    width:100%; display:flex;
+    align-items:center; justify-content:space-between;
+    padding:16px 0 12px;
+    border-bottom:1px solid rgba(201,168,76,0.15);
+  }
+  .top-bar .logo {
+    font-family:'Cinzel', serif;
+    font-size:13px; letter-spacing:0.3em;
+    color:var(--gold);
+  }
+  .yantra-balance {
+    display:flex; align-items:center; gap:6px;
+    font-size:11px; color:var(--gold2);
+  }
+  .yantra-balance .dot {
+    width:6px; height:6px;
+    background:var(--gold);
+    border-radius:50%;
+    box-shadow:0 0 6px var(--gold);
+    animation:pulse 2s infinite;
+  }
+
+  /* price display */
+  .price-zone {
+    margin-top:22px;
+    text-align:center; width:100%;
+  }
+  .asset-label {
+    font-size:9px; letter-spacing:0.4em;
+    color:var(--dim); text-transform:uppercase;
+    margin-bottom:6px;
+  }
+  .live-price {
+    font-size:clamp(36px,10vw,52px);
+    font-weight:100; letter-spacing:0.05em;
+    color:var(--text);
+    transition:color 0.4s;
+    font-variant-numeric:tabular-nums;
+  }
+  .live-price.up   { color:var(--cyan); text-shadow:0 0 20px rgba(0,180,216,0.4); }
+  .live-price.down { color:var(--red);  text-shadow:0 0 20px rgba(255,0,110,0.4); }
+
+  .price-change {
+    font-size:11px; margin-top:4px;
+    letter-spacing:0.2em; color:var(--dim);
+    transition:color 0.4s;
+  }
+  .price-change.up   { color:var(--cyan); }
+  .price-change.down { color:var(--red);  }
+
+  /* center yantra */
+  .mini-yantra-wrap {
+    margin:18px auto 0;
+    width:min(200px,52vw); height:min(200px,52vw);
+    position:relative;
+  }
+  #miniCanvas {
+    width:100%; height:100%;
+    filter:drop-shadow(0 0 18px rgba(201,168,76,0.3));
+  }
+
+  /* countdown ring */
+  .countdown-ring {
+    position:absolute; inset:-8px;
+    transform:rotate(-90deg);
+  }
+  .countdown-ring circle {
+    fill:none; stroke:rgba(201,168,76,0.15); stroke-width:2;
+  }
+  .countdown-ring .progress {
+    stroke:var(--gold);
+    stroke-width:2;
+    stroke-linecap:butt;
+    transition:stroke-dashoffset 1s linear;
+    filter:drop-shadow(0 0 4px var(--gold));
+  }
+
+  .countdown-label {
+    position:absolute; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    font-size:11px; letter-spacing:0.25em;
+    color:var(--dim);
+    flex-direction:column; gap:2px;
+  }
+  .countdown-label .secs {
+    font-size:22px; font-weight:300;
+    color:var(--gold);
+    text-shadow:0 0 12px rgba(201,168,76,0.5);
+  }
+
+  /* predict buttons */
+  .predict-zone {
+    width:100%; display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px; margin-top:22px;
+  }
+
+  .pred-btn {
+    padding:18px 0;
+    background:transparent;
+    border:1px solid;
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px; letter-spacing:0.3em;
+    text-transform:uppercase;
+    cursor:pointer;
+    transition:all 0.25s;
+    display:flex; flex-direction:column;
+    align-items:center; gap:8px;
+    position:relative; overflow:hidden;
+  }
+  .pred-btn .pred-icon { font-size:22px; line-height:1; }
+  .pred-btn.up-btn {
+    border-color:rgba(0,180,216,0.4);
+    color:var(--cyan);
+  }
+  .pred-btn.up-btn:hover, .pred-btn.up-btn:active {
+    background:rgba(0,180,216,0.12);
+    border-color:var(--cyan);
+    box-shadow:0 0 20px rgba(0,180,216,0.2);
+  }
+  .pred-btn.down-btn {
+    border-color:rgba(255,0,110,0.4);
+    color:var(--red);
+  }
+  .pred-btn.down-btn:hover, .pred-btn.down-btn:active {
+    background:rgba(255,0,110,0.12);
+    border-color:var(--red);
+    box-shadow:0 0 20px rgba(255,0,110,0.2);
+  }
+  .pred-btn.selected-up {
+    background:rgba(0,180,216,0.18);
+    border-color:var(--cyan);
+    box-shadow:0 0 24px rgba(0,180,216,0.3);
+  }
+  .pred-btn.selected-down {
+    background:rgba(255,0,110,0.18);
+    border-color:var(--red);
+    box-shadow:0 0 24px rgba(255,0,110,0.3);
+  }
+
+  .stake-label {
+    font-size:9px; color:var(--dim);
+    letter-spacing:0.25em; margin-top:2px;
+  }
+
+  /* bottom stats */
+  .bottom-stats {
+    width:100%; display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:1px; margin-top:20px;
+    border-top:1px solid rgba(201,168,76,0.12);
+    padding-top:16px;
+  }
+  .stat-cell { text-align:center; }
+  .stat-val {
+    font-size:13px; font-weight:300;
+    color:var(--gold2);
+    text-shadow:0 0 8px rgba(255,217,125,0.3);
+  }
+  .stat-key {
+    font-size:8px; letter-spacing:0.3em;
+    color:var(--dim); margin-top:3px;
+    text-transform:uppercase;
+  }
+
+  /* ── RESULT SCREEN ── */
+  #resultScreen { z-index:20; }
+
+  .result-yantra {
+    width:min(220px,60vw); height:min(220px,60vw);
+  }
+
+  .result-title {
+    font-family:'Cinzel', serif;
+    font-size:clamp(24px,7vw,36px);
+    letter-spacing:0.3em;
+    margin-top:20px;
+    opacity:0;
+    transform:scale(0.8);
+    transition:opacity 0.6s ease, transform 0.6s ease;
+  }
+  .result-title.show { opacity:1; transform:scale(1); }
+  .result-title.win  { color:var(--gold); text-shadow:0 0 30px rgba(201,168,76,0.7); }
+  .result-title.lose { color:var(--red);  text-shadow:0 0 30px rgba(255,0,110,0.5); }
+
+  .result-earned {
+    font-size:13px; letter-spacing:0.3em;
+    color:var(--gold2); margin-top:8px;
+    opacity:0; transition:opacity 0.6s ease 0.3s;
+  }
+  .result-earned.show { opacity:1; }
+
+  .result-btn {
+    margin-top:32px; padding:14px 40px;
+    background:transparent;
+    border:1px solid var(--gold);
+    color:var(--gold);
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px; letter-spacing:0.3em;
+    text-transform:uppercase; cursor:pointer;
+    transition:all 0.25s;
+  }
+  .result-btn:hover, .result-btn:active {
+    background:var(--gold); color:#000;
+    box-shadow:0 0 24px rgba(201,168,76,0.5);
+  }
+
+  /* ── PARTICLE CANVAS (result) ── */
+  #particleCanvas {
+    position:fixed; inset:0;
+    pointer-events:none; z-index:19;
+    opacity:0; transition:opacity 0.3s;
+  }
+  #particleCanvas.show { opacity:1; }
+
+  /* ── PUZZLE OVERLAY ── */
+  #puzzleOverlay {
+    position:fixed; inset:0; z-index:30;
+    background:rgba(5,5,7,0.95);
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    opacity:0; pointer-events:none;
+    transition:opacity 0.5s;
+    gap:20px;
+  }
+  #puzzleOverlay.active { opacity:1; pointer-events:all; }
+
+  .puzzle-title {
+    font-family:'Cinzel', serif;
+    font-size:14px; letter-spacing:0.4em;
+    color:var(--gold); text-transform:uppercase;
+  }
+  .puzzle-sub {
+    font-size:9px; letter-spacing:0.3em;
+    color:var(--dim); text-align:center;
+    padding:0 20px;
+  }
+  .puzzle-sequence {
+    display:flex; gap:12px; align-items:center;
+  }
+  .seq-num {
+    width:52px; height:52px;
+    border:1px solid rgba(201,168,76,0.3);
+    display:flex; align-items:center; justify-content:center;
+    font-size:20px; font-weight:300;
+    color:var(--gold2);
+    background:rgba(201,168,76,0.05);
+  }
+  .seq-num.hidden-num {
+    color:var(--dim); border-color:rgba(157,78,221,0.4);
+    background:rgba(157,78,221,0.08);
+    font-size:24px;
+  }
+  .puzzle-choices {
+    display:grid; grid-template-columns:repeat(4,1fr);
+    gap:10px; width:min(280px,80vw);
+  }
+  .choice-btn {
+    padding:14px 0;
+    background:transparent;
+    border:1px solid rgba(201,168,76,0.25);
+    color:var(--gold2);
+    font-family:'JetBrains Mono', monospace;
+    font-size:16px; cursor:pointer;
+    transition:all 0.2s;
+  }
+  .choice-btn:hover, .choice-btn:active {
+    background:rgba(201,168,76,0.15);
+    border-color:var(--gold);
+    box-shadow:0 0 14px rgba(201,168,76,0.3);
+  }
+  .choice-btn.correct {
+    background:rgba(0,180,216,0.2);
+    border-color:var(--cyan);
+    color:var(--cyan);
+  }
+  .choice-btn.wrong {
+    background:rgba(255,0,110,0.15);
+    border-color:var(--red);
+    color:var(--red);
+  }
+
+  .puzzle-timer-bar {
+    width:min(280px,80vw); height:2px;
+    background:rgba(201,168,76,0.15);
+    position:relative; overflow:hidden;
+  }
+  .puzzle-timer-fill {
+    height:100%; background:var(--gold);
+    box-shadow:0 0 8px var(--gold);
+    transition:width 0.1s linear;
+  }
+
+  /* ── LEADERBOARD ── */
+  #lbScreen { z-index:10; justify-content:flex-start; padding:0 20px; }
+
+  .lb-header {
+    width:100%; padding:16px 0 12px;
+    border-bottom:1px solid rgba(201,168,76,0.15);
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .lb-title {
+    font-family:'Cinzel', serif;
+    font-size:13px; letter-spacing:0.3em; color:var(--gold);
+  }
+  .lb-back {
+    font-size:9px; letter-spacing:0.3em;
+    color:var(--dim); cursor:pointer;
+    background:none; border:none; color:var(--dim);
+    font-family:'JetBrains Mono', monospace;
+    text-transform:uppercase;
+  }
+  .lb-back:hover { color:var(--gold); }
+
+  .lb-row {
+    width:100%; display:grid;
+    grid-template-columns:32px 1fr auto;
+    gap:12px; align-items:center;
+    padding:12px 0;
+    border-bottom:1px solid rgba(201,168,76,0.07);
+    font-size:11px;
+  }
+  .lb-rank { color:var(--dim); text-align:center; }
+  .lb-rank.top { color:var(--gold); font-weight:400; }
+  .lb-name { color:var(--text); letter-spacing:0.1em; }
+  .lb-score { color:var(--gold2); letter-spacing:0.15em; }
+
+  /* ── TOAST ── */
+  .toast {
+    position:fixed; bottom:24px; left:50%;
+    transform:translateX(-50%) translateY(80px);
+    background:rgba(10,10,20,0.95);
+    border:1px solid rgba(201,168,76,0.3);
+    color:var(--gold2);
+    font-size:11px; letter-spacing:0.2em;
+    padding:10px 24px;
+    transition:transform 0.4s ease, opacity 0.4s ease;
+    opacity:0; z-index:100;
+    white-space:nowrap;
+    box-shadow:0 0 20px rgba(201,168,76,0.15);
+  }
+  .toast.show {
+    transform:translateX(-50%) translateY(0);
+    opacity:1;
+  }
+
+  @keyframes pulse {
+    0%,100%{ opacity:1; transform:scale(1); }
+    50%{ opacity:0.5; transform:scale(0.8); }
+  }
+  @keyframes shimmer {
+    0%  { opacity:0.3; }
+    50% { opacity:1;   }
+    100%{ opacity:0.3; }
+  }
+</style>
+</head>
+<body>
+
+<!-- shared particle bg -->
+<canvas id="bgCanvas"></canvas>
+<canvas id="particleCanvas"></canvas>
+
+<!-- ══ SCREEN 1 : INTRO ══ -->
+<div id="introScreen" class="screen active">
+  <canvas id="yantaCanvas"></canvas>
+  <div class="oracle-title" id="oracleTitle">ORACLE</div>
+  <div class="oracle-sub" id="oracleSub">Predict · Earn · Ascend</div>
+  <button class="enter-btn" id="enterBtn" onclick="goToGame()">Enter the Oracle</button>
+</div>
+
+<!-- ══ SCREEN 2 : GAME ══ -->
+<div id="gameScreen" class="screen">
+  <div class="top-bar">
+    <div class="logo">ORACLE</div>
+    <div class="yantra-balance">
+      <div class="dot"></div>
+      <span id="balanceDisplay">0</span> ◈ YANTRA
+    </div>
+    <button onclick="showLeaderboard()" style="background:none;border:none;color:var(--dim);font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.25em;cursor:pointer;text-transform:uppercase;">RANK</button>
+  </div>
+
+  <div class="price-zone">
+    <div class="asset-label">ETH · USDT · LIVE</div>
+    <div class="live-price" id="livePrice">—</div>
+    <div class="price-change" id="priceChange">loading…</div>
+  </div>
+
+  <div class="mini-yantra-wrap">
+    <canvas id="miniCanvas"></canvas>
+    <svg class="countdown-ring" id="countdownRing" viewBox="0 0 216 216">
+      <circle cx="108" cy="108" r="104"/>
+      <circle class="progress" id="ringProgress" cx="108" cy="108" r="104"
+        stroke-dasharray="653" stroke-dashoffset="0"/>
+    </svg>
+    <div class="countdown-label">
+      <div class="secs" id="countdownSecs">60</div>
+      <div style="font-size:8px;letter-spacing:0.3em;color:var(--dim)">SECONDS</div>
+    </div>
+  </div>
+
+  <div class="predict-zone" id="predictZone">
+    <button class="pred-btn up-btn" id="upBtn" onclick="predict('up')">
+      <div class="pred-icon">▲</div>
+      <div>UP</div>
+      <div class="stake-label">+50 ◈</div>
+    </button>
+    <button class="pred-btn down-btn" id="downBtn" onclick="predict('down')">
+      <div class="pred-icon">▼</div>
+      <div>DOWN</div>
+      <div class="stake-label">+50 ◈</div>
+    </button>
+  </div>
+
+  <div class="bottom-stats">
+    <div class="stat-cell">
+      <div class="stat-val" id="statWins">0</div>
+      <div class="stat-key">Wins</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-val" id="statStreak">0</div>
+      <div class="stat-key">Streak</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-val" id="statTotal">0</div>
+      <div class="stat-key">◈ Total</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PUZZLE OVERLAY ══ -->
+<div id="puzzleOverlay">
+  <div class="puzzle-title">Confirm Your Prediction</div>
+  <div class="puzzle-sub">Solve the sequence to multiply your reward</div>
+  <div class="puzzle-sequence" id="puzzleSequence"></div>
+  <div class="puzzle-timer-bar">
+    <div class="puzzle-timer-fill" id="puzzleTimerFill" style="width:100%"></div>
+  </div>
+  <div class="puzzle-choices" id="puzzleChoices"></div>
+</div>
+
+<!-- ══ SCREEN 3 : RESULT ══ -->
+<div id="resultScreen" class="screen">
+  <canvas class="result-yantra" id="resultCanvas"></canvas>
+  <div class="result-title" id="resultTitle">ASCENDED</div>
+  <div class="result-earned" id="resultEarned">+150 ◈ YANTRA EARNED</div>
+  <button class="result-btn" onclick="nextRound()">Next Round</button>
+</div>
+
+<!-- ══ SCREEN 4 : LEADERBOARD ══ -->
+<div id="lbScreen" class="screen">
+  <div class="lb-header">
+    <div class="lb-title">ORACLE RANKS</div>
+    <button class="lb-back" onclick="showGame()">← Back</button>
+  </div>
+  <div id="lbRows" style="width:100%;overflow-y:auto;max-height:calc(100vh - 80px);padding-bottom:20px;"></div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════
+const state = {
+  balance: parseInt(localStorage.getItem('yantra_balance') || '0'),
+  wins: parseInt(localStorage.getItem('yantra_wins') || '0'),
+  streak: parseInt(localStorage.getItem('yantra_streak') || '0'),
+  total: parseInt(localStorage.getItem('yantra_total') || '0'),
+  currentPrice: 0,
+  priceAtPrediction: 0,
+  prediction: null,  // 'up' | 'down'
+  roundActive: false,
+  countdown: 60,
+  countdownId: null,
+  priceHistory: [],
+  puzzleAnswer: null,
+  puzzleCorrect: false,
+  introComplete: false,
+};
+
+const LEADERBOARD = [
+  { name: 'Cipher_X', score: 84200 },
+  { name: 'NullVector', score: 71050 },
+  { name: 'OracleDAO', score: 65800 },
+  { name: 'ViperNode', score: 52340 },
+  { name: 'Astral_K', score: 48900 },
+  { name: 'You', score: state.total, highlight: true },
+  { name: 'Phantom9', score: 31200 },
+  { name: 'Sigma_W', score: 24500 },
+  { name: 'CryptoYogi', score: 18300 },
+  { name: 'ZeroDay_', score: 12700 },
+];
+
+// ═══════════════════════════════════════════════════
+// BACKGROUND CANVAS — slow drifting particles
+// ═══════════════════════════════════════════════════
+(function initBg() {
+  const c = document.getElementById('bgCanvas');
+  const ctx = c.getContext('2d');
+  let w, h, pts;
+  function resize() {
+    w = c.width = innerWidth;
+    h = c.height = innerHeight;
+  }
+  resize();
+  addEventListener('resize', resize);
+  pts = Array.from({length:38}, () => ({
+    x: Math.random(), y: Math.random(),
+    vx:(Math.random()-.5)*.0003, vy:(Math.random()-.5)*.0003,
+    r: Math.random()*1.2+.3,
+    gold: Math.random() > .6,
+  }));
+  function draw() {
+    ctx.clearRect(0,0,w,h);
+    for (const p of pts) {
+      p.x = (p.x+p.vx+1)%1;
+      p.y = (p.y+p.vy+1)%1;
+      ctx.beginPath();
+      const c2 = p.gold ? '201,168,76' : '157,78,221';
+      ctx.fillStyle = `rgba(${c2},${.12+p.r*.07})`;
+      ctx.arc(p.x*w, p.y*h, p.r, 0, Math.PI*2);
+      ctx.fill();
+    }
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+// ═══════════════════════════════════════════════════
+// YANTRA RENDERER — the signature element
+// draws layered sacred geometry that breathes
+// ═══════════════════════════════════════════════════
+class YantraRenderer {
+  constructor(canvas, opts={}) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.opts = {
+      size: opts.size || 340,
+      phase: 0,
+      warmth: 0,       // 0=cold geometric, 1=warm ancient
+      state: 'idle',   // idle | win | lose | pulse
+      stateT: 0,
+    };
+    this.dpr = Math.min(devicePixelRatio||1, 2);
+    const s = this.opts.size;
+    canvas.width = s * this.dpr;
+    canvas.height = s * this.dpr;
+    canvas.style.width = s + 'px';
+    canvas.style.height = s + 'px';
+    this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    this.raf = null;
+  }
+
+  setState(s) {
+    this.opts.state = s;
+    this.opts.stateT = 0;
+  }
+
+  draw(timestamp=0) {
+    const { ctx, opts } = this;
+    const s = opts.size;
+    const cx = s/2, cy = s/2;
+    opts.phase = timestamp * .0004;
+    opts.stateT += .016;
+
+    // warm up during intro
+    if (opts.warmth < 1 && state.introComplete) opts.warmth = Math.min(1, opts.warmth + .005);
+
+    ctx.clearRect(0, 0, s, s);
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    const w = opts.warmth;
+    const breathe = 1 + Math.sin(opts.phase * 1.4) * .018;
+
+    // state modifiers
+    let stateScale = 1, stateGlow = 0, stateColor = null;
+    if (opts.state === 'win') {
+      stateScale = 1 + Math.sin(opts.stateT * 6) * .04 * Math.max(0, 1 - opts.stateT*.3);
+      stateGlow  = Math.max(0, 1 - opts.stateT * .25);
+      stateColor = '201,168,76';
+    } else if (opts.state === 'lose') {
+      stateGlow  = Math.max(0, 1 - opts.stateT * .3);
+      stateColor = '255,0,110';
+      const crack = Math.min(1, opts.stateT * .5);
+      ctx.globalAlpha = 1 - crack * .3;
+    } else if (opts.state === 'pulse') {
+      stateScale = 1 + Math.sin(opts.stateT * 8) * .025;
+    }
+
+    ctx.scale(stateScale, stateScale);
+
+    const r = s * .44 * breathe;
+    const gold  = `rgba(201,168,76,`;
+    const gold2 = `rgba(255,217,125,`;
+    const vio   = `rgba(157,78,221,`;
+    const cyan  = `rgba(0,180,216,`;
+
+    // ── outer circle ──
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI*2);
+    ctx.strokeStyle = gold + `${.25 + w*.25})`;
+    ctx.lineWidth = 1;
+    if (stateColor && stateGlow > .01) {
+      ctx.shadowColor = `rgba(${stateColor},${stateGlow})`;
+      ctx.shadowBlur = 24;
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // ── petal lotus (outer) ──
+    const petals = 8;
+    for (let i=0; i<petals; i++) {
+      const a = (i/petals)*Math.PI*2 + opts.phase*.3;
+      const px = Math.cos(a)*r*.72, py = Math.sin(a)*r*.72;
+      ctx.beginPath();
+      ctx.ellipse(px, py, r*.28, r*.12, a, 0, Math.PI*2);
+      const alpha = .08 + w*.1 + Math.sin(opts.phase + i)*(.04+w*.04);
+      ctx.strokeStyle = gold + `${alpha})`;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    // ── inner lotus (counter rotate) ──
+    const petals2 = 8;
+    for (let i=0; i<petals2; i++) {
+      const a = (i/petals2)*Math.PI*2 - opts.phase*.2;
+      const px = Math.cos(a)*r*.45, py = Math.sin(a)*r*.45;
+      ctx.beginPath();
+      ctx.ellipse(px, py, r*.18, r*.08, a, 0, Math.PI*2);
+      const alpha = .12 + w*.1 + Math.sin(opts.phase*1.5 + i)*.05;
+      ctx.strokeStyle = vio + `${alpha})`;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    // ── 9-pointed star polygon ──
+    ctx.save();
+    ctx.rotate(opts.phase * .15);
+    ctx.beginPath();
+    for (let i=0; i<9; i++) {
+      const a = (i/9)*Math.PI*2 - Math.PI/2;
+      const rr = i%2===0 ? r*.62 : r*.28;
+      const x = Math.cos(a)*rr, y = Math.sin(a)*rr;
+      if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = gold + `.18)`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.restore();
+
+    // ── upward triangle ──
+    ctx.save();
+    ctx.rotate(opts.phase * -.08);
+    ctx.beginPath();
+    for (let i=0; i<3; i++) {
+      const a = (i/3)*Math.PI*2 - Math.PI/2;
+      const x = Math.cos(a)*r*.58, y = Math.sin(a)*r*.58;
+      if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = cyan + `.22)`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.restore();
+
+    // ── downward triangle ──
+    ctx.save();
+    ctx.rotate(opts.phase * .08 + Math.PI/3);
+    ctx.beginPath();
+    for (let i=0; i<3; i++) {
+      const a = (i/3)*Math.PI*2 - Math.PI/2;
+      const x = Math.cos(a)*r*.58, y = Math.sin(a)*r*.58;
+      if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = vio + `.22)`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.restore();
+
+    // ── inner circle ──
+    ctx.beginPath();
+    ctx.arc(0, 0, r*.22, 0, Math.PI*2);
+    ctx.strokeStyle = gold + `.4)`;
+    ctx.lineWidth = 1.5;
+    if (stateColor && stateGlow > .01) {
+      ctx.shadowColor = `rgba(${stateColor},${stateGlow*.8})`;
+      ctx.shadowBlur = 16;
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // ── bindu (center dot) ──
+    const bindupulse = .5 + Math.sin(opts.phase*2.5)*.5;
+    const gr = ctx.createRadialGradient(0,0,0,0,0,r*.14);
+    gr.addColorStop(0, gold2 + `${.7+bindupulse*.3})`);
+    gr.addColorStop(.5, gold + `.4)`);
+    gr.addColorStop(1, 'rgba(201,168,76,0)');
+    ctx.beginPath();
+    ctx.arc(0, 0, r*.14, 0, Math.PI*2);
+    ctx.fillStyle = gr;
+    if (stateColor && stateGlow > .01) {
+      ctx.shadowColor = `rgba(${stateColor},${stateGlow})`;
+      ctx.shadowBlur = 30;
+    }
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // ── all-seeing eye (warm state) ──
+    if (w > .3) {
+      const ea = w * .8;
+      ctx.save();
+      ctx.beginPath();
+      ctx.ellipse(0, 0, r*.12, r*.055, 0, 0, Math.PI*2);
+      ctx.strokeStyle = gold + `${ea*.6})`;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(0, 0, r*.035, 0, Math.PI*2);
+      ctx.fillStyle = gold + `${ea})`;
+      ctx.fill();
+      ctx.restore();
+    }
+
+    ctx.restore();
+  }
+
+  start() {
+    const loop = (ts) => { this.draw(ts); this.raf = requestAnimationFrame(loop); };
+    loop(0);
+  }
+  stop() { cancelAnimationFrame(this.raf); }
+}
+
+// ═══════════════════════════════════════════════════
+// INIT YANTRAS
+// ═══════════════════════════════════════════════════
+const introYantra = new YantraRenderer(
+  document.getElementById('yantaCanvas'), { size: Math.min(340, innerWidth*.88) }
+);
+introYantra.start();
+
+// Stagger the intro reveal
+setTimeout(()=>{ document.getElementById('oracleTitle').classList.add('show'); }, 1400);
+setTimeout(()=>{ document.getElementById('oracleSub').classList.add('show'); }, 1800);
+setTimeout(()=>{ document.getElementById('enterBtn').classList.add('show'); }, 2400);
+setTimeout(()=>{ state.introComplete = true; }, 600);
+
+let miniYantra, resultYantra;
+
+// ═══════════════════════════════════════════════════
+// PRICE FEED — real Binance public WebSocket
+// ═══════════════════════════════════════════════════
+let ws;
+let lastPrice = 0;
+
+function connectPriceFeed() {
+  try {
+    ws = new WebSocket('wss://stream.binance.com:9443/ws/ethusdt@ticker');
+    ws.onmessage = (e) => {
+      const d = JSON.parse(e.data);
+      const price = parseFloat(d.c);
+      const pct   = parseFloat(d.P);
+      if (!price) return;
+      const prev = state.currentPrice || price;
+      state.currentPrice = price;
+      state.priceHistory.push(price);
+      if (state.priceHistory.length > 60) state.priceHistory.shift();
+      updatePriceDisplay(price, pct, price > prev);
+    };
+    ws.onerror = () => { /* silent */ };
+    ws.onclose = () => { setTimeout(connectPriceFeed, 3000); };
+  } catch(e) { /* no WS in all environments */ }
+}
+
+function updatePriceDisplay(price, pct, up) {
+  const el = document.getElementById('livePrice');
+  const ch = document.getElementById('priceChange');
+  if (!el) return;
+  el.textContent = '$' + price.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  el.className = 'live-price ' + (up ? 'up' : 'down');
+  const sign = pct >= 0 ? '+' : '';
+  ch.textContent = `${sign}${pct.toFixed(2)}% · 24H`;
+  ch.className = 'price-change ' + (pct >= 0 ? 'up' : 'down');
+}
+
+// ═══════════════════════════════════════════════════
+// SCREEN TRANSITIONS
+// ═══════════════════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function goToGame() {
+  showScreen('gameScreen');
+  introYantra.stop();
+
+  // init mini yantra
+  const mc = document.getElementById('miniCanvas');
+  const sz = Math.min(200, innerWidth*.52);
+  miniYantra = new YantraRenderer(mc, { size: sz });
+  miniYantra.start();
+
+  // connect real price
+  connectPriceFeed();
+  startRound();
+  updateStats();
+}
+
+function showLeaderboard() {
+  showScreen('lbScreen');
+  renderLeaderboard();
+}
+function showGame() { showScreen('gameScreen'); }
+
+// ═══════════════════════════════════════════════════
+// GAME LOGIC
+// ═══════════════════════════════════════════════════
+function startRound() {
+  state.roundActive = true;
+  state.prediction  = null;
+  state.countdown   = 60;
+  state.priceAtPrediction = 0;
+
+  document.getElementById('upBtn').className   = 'pred-btn up-btn';
+  document.getElementById('downBtn').className = 'pred-btn down-btn';
+  document.getElementById('upBtn').disabled    = false;
+  document.getElementById('downBtn').disabled  = false;
+
+  updateCountdown();
+  clearInterval(state.countdownId);
+  state.countdownId = setInterval(tickCountdown, 1000);
+  if (miniYantra) miniYantra.setState('idle');
+}
+
+function tickCountdown() {
+  if (!state.roundActive) return;
+  state.countdown--;
+  updateCountdown();
+
+  if (state.countdown <= 0) {
+    clearInterval(state.countdownId);
+    if (!state.prediction) {
+      // no prediction made — just restart
+      showToast('No prediction — round skipped');
+      setTimeout(startRound, 1500);
+    } else {
+      resolveRound();
+    }
+  }
+}
+
+function updateCountdown() {
+  document.getElementById('countdownSecs').textContent = state.countdown;
+  const circ = 653; // 2π × 104
+  const offset = circ * (1 - state.countdown / 60);
+  document.getElementById('ringProgress').style.strokeDashoffset = offset;
+}
+
+function predict(dir) {
+  if (!state.roundActive || state.prediction) return;
+  state.prediction = dir;
+  state.priceAtPrediction = state.currentPrice;
+
+  document.getElementById('upBtn').className   = dir==='up'   ? 'pred-btn selected-up'   : 'pred-btn up-btn';
+  document.getElementById('downBtn').className = dir==='down' ? 'pred-btn selected-down' : 'pred-btn down-btn';
+  document.getElementById('upBtn').disabled    = true;
+  document.getElementById('downBtn').disabled  = true;
+
+  if (miniYantra) miniYantra.setState('pulse');
+  showPuzzle();
+}
+
+// ═══════════════════════════════════════════════════
+// PUZZLE SYSTEM
+// ═══════════════════════════════════════════════════
+function showPuzzle() {
+  // generate arithmetic sequence puzzle
+  const start  = Math.floor(Math.random()*8)+1;
+  const step   = Math.floor(Math.random()*5)+2;
+  const len    = 4;
+  const seq    = Array.from({length:len}, (_,i) => start + i*step);
+  const answer = start + len*step;
+  state.puzzleAnswer  = answer;
+  state.puzzleCorrect = false;
+
+  // wrong choices
+  const wrongs = [
+    answer + step,
+    answer - step,
+    answer + 1,
+  ].filter(x => x !== answer);
+
+  const choices = [answer, ...wrongs].sort(()=>Math.random()-.5);
+
+  // render sequence
+  const seqEl = document.getElementById('puzzleSequence');
+  seqEl.innerHTML = seq.map(n=>`<div class="seq-num">${n}</div>`).join('')
+    + `<div class="seq-num hidden-num">?</div>`;
+
+  // render choices
+  const choicesEl = document.getElementById('puzzleChoices');
+  choicesEl.innerHTML = choices.map(c =>
+    `<button class="choice-btn" onclick="answerPuzzle(${c}, this)">${c}</button>`
+  ).join('');
+
+  document.getElementById('puzzleOverlay').classList.add('active');
+
+  // puzzle timer — 8 seconds
+  let t = 100;
+  const fill = document.getElementById('puzzleTimerFill');
+  fill.style.width = '100%';
+  const tid = setInterval(()=>{
+    t -= 100/80;
+    fill.style.width = Math.max(0,t) + '%';
+    if (t <= 0) {
+      clearInterval(tid);
+      closePuzzle(false);
+    }
+  }, 100);
+  state._puzzleTimerId = tid;
+}
+
+function answerPuzzle(val, btn) {
+  clearInterval(state._puzzleTimerId);
+  const correct = val === state.puzzleAnswer;
+  state.puzzleCorrect = correct;
+  btn.classList.add(correct ? 'correct' : 'wrong');
+  document.querySelectorAll('.choice-btn').forEach(b => b.disabled = true);
+  setTimeout(() => closePuzzle(correct), 700);
+}
+
+function closePuzzle(correct) {
+  clearInterval(state._puzzleTimerId);
+  document.getElementById('puzzleOverlay').classList.remove('active');
+  if (correct) showToast('Puzzle solved! Reward ×2');
+  else         showToast('Puzzle missed — base reward only');
+}
+
+// ═══════════════════════════════════════════════════
+// RESOLVE ROUND
+// ═══════════════════════════════════════════════════
+function resolveRound() {
+  clearInterval(state.countdownId);
+  state.roundActive = false;
+
+  const priceNow = state.currentPrice;
+  const priceThen = state.priceAtPrediction || priceNow;
+  const moved = priceNow > priceThen ? 'up' : 'down';
+  const won   = moved === state.prediction;
+
+  let earned = 0;
+  if (won) {
+    earned = state.puzzleCorrect ? 100 : 50;
+    state.wins++;
+    state.streak++;
+    // streak bonus
+    if (state.streak >= 3) earned += 25 * Math.floor(state.streak/3);
+  } else {
+    state.streak = 0;
+  }
+
+  state.balance += earned;
+  state.total   += earned;
+
+  // persist
+  localStorage.setItem('yantra_balance', state.balance);
+  localStorage.setItem('yantra_wins',    state.wins);
+  localStorage.setItem('yantra_streak',  state.streak);
+  localStorage.setItem('yantra_total',   state.total);
+
+  updateStats();
+  showResult(won, earned);
+}
+
+function showResult(won, earned) {
+  showScreen('resultScreen');
+
+  // init result yantra
+  const rc = document.getElementById('resultCanvas');
+  if (resultYantra) resultYantra.stop();
+  const sz = Math.min(220, innerWidth*.6);
+  resultYantra = new YantraRenderer(rc, {size: sz});
+  resultYantra.setState(won ? 'win' : 'lose');
+  resultYantra.start();
+
+  const title  = document.getElementById('resultTitle');
+  const earned_el = document.getElementById('resultEarned');
+
+  title.className  = `result-title ${won ? 'win' : 'lose'}`;
+  title.textContent = won ? 'ASCENDED' : 'THE ORACLE DENIES';
+  earned_el.textContent = won
+    ? `+${earned} ◈ YANTRA EARNED`
+    : 'No reward this round';
+
+  setTimeout(()=>{ title.classList.add('show'); }, 100);
+  setTimeout(()=>{ earned_el.classList.add('show'); }, 400);
+
+  if (won) spawnParticles();
+}
+
+function nextRound() {
+  document.getElementById('resultTitle').classList.remove('show');
+  document.getElementById('resultEarned').classList.remove('show');
+  if (resultYantra) resultYantra.stop();
+  document.getElementById('particleCanvas').classList.remove('show');
+  showScreen('gameScreen');
+  startRound();
+}
+
+// ═══════════════════════════════════════════════════
+// GOLD PARTICLE RAIN
+// ═══════════════════════════════════════════════════
+function spawnParticles() {
+  const c = document.getElementById('particleCanvas');
+  c.width = innerWidth; c.height = innerHeight;
+  c.classList.add('show');
+  const ctx = c.getContext('2d');
+  const pts = Array.from({length:80}, ()=>({
+    x: Math.random()*innerWidth,
+    y: -20 - Math.random()*innerHeight*.5,
+    vy: 1.5 + Math.random()*3,
+    vx: (Math.random()-.5)*1.5,
+    r:  1.5 + Math.random()*3,
+    a:  .6 + Math.random()*.4,
+    rot: Math.random()*Math.PI*2,
+    vrot: (Math.random()-.5)*.15,
+  }));
+  let frames = 0;
+  function draw() {
+    ctx.clearRect(0,0,innerWidth,innerHeight);
+    for (const p of pts) {
+      p.y += p.vy; p.x += p.vx; p.rot += p.vrot; p.a -= .006;
+      if (p.a <= 0) continue;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.globalAlpha = p.a;
+      ctx.fillStyle = '#C9A84C';
+      ctx.shadowColor = '#FFD97D';
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(0, 0, p.r, 0, Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+    }
+    frames++;
+    if (frames < 120) requestAnimationFrame(draw);
+    else c.classList.remove('show');
+  }
+  draw();
+}
+
+// ═══════════════════════════════════════════════════
+// LEADERBOARD
+// ═══════════════════════════════════════════════════
+function renderLeaderboard() {
+  LEADERBOARD[5].score = state.total; // update your score
+  const sorted = [...LEADERBOARD].sort((a,b)=>b.score-a.score);
+  const el = document.getElementById('lbRows');
+  el.innerHTML = sorted.map((r,i)=>`
+    <div class="lb-row" style="${r.highlight?'background:rgba(201,168,76,0.05);':''}">
+      <div class="lb-rank ${i<3?'top':''}">${i===0?'◈':i+1}</div>
+      <div class="lb-name" style="${r.highlight?'color:var(--gold2)':''}">${r.name}</div>
+      <div class="lb-score">${r.score.toLocaleString()} ◈</div>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════════════════════
+function updateStats() {
+  document.getElementById('balanceDisplay').textContent = state.balance.toLocaleString();
+  document.getElementById('statWins').textContent   = state.wins;
+  document.getElementById('statStreak').textContent = state.streak;
+  document.getElementById('statTotal').textContent  = state.total.toLocaleString();
+}
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+// start stats
+updateStats();
+</script>
+</body>
+</html>
